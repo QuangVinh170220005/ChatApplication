@@ -26,7 +26,7 @@ export const App = () => {
     <div className="h-screen" data-theme = "night">
       <Routes>
         <Route path="/" element={isAuthenticated && isOnboarded ? (
-          <Layout>
+          <Layout showSidebar = "true">
             <HomePage/>
           </Layout>
         ) : (<Navigate to={isAuthenticated ? "/login" : "/onboarding"}/>) }/>
