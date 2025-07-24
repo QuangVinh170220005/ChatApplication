@@ -1,4 +1,3 @@
-import React from 'react'
 import { Navigate, Route, Routes } from 'react-router'
 import HomePage from './pages/HomePage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
@@ -11,11 +10,14 @@ import { Toaster } from 'react-hot-toast';
 import PageLoader from './components/PageLoader.jsx';
 import useAuthUser from './hooks/useAuthUser';
 import Layout from './components/Layout';
+import { useThemeStore } from './store/useThemeStore.js';
 
 
 export const App = () => {
 
   const {isLoading, authUser} = useAuthUser()
+
+  const {theme} = useThemeStore()
 
   const isAuthenticated = Boolean(authUser)
   const isOnboarded = authUser?.isOnboarded
@@ -23,7 +25,7 @@ export const App = () => {
   if(isLoading) return <PageLoader />
 
   return (
-    <div className="h-screen" data-theme = "night">
+    <div className="h-screen" data-theme = {theme}>
       <Routes>
         <Route path="/" element={isAuthenticated && isOnboarded ? (
           <Layout showSidebar = "true">
