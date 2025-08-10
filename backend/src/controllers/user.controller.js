@@ -58,6 +58,7 @@ export async function sendFriendRequest(req, res){
                 {sender: myId, recipient: recipientId},
                 {sender: recipientId, recipient: myId}
             ],
+            status: {$in: ["pending", "accepted"]}
         })
 
         if(existingRequest){
@@ -154,7 +155,7 @@ export async function declineFriendRequest(req, res) {
             return res.status(404).json({ message: "Friend request not found" });
         }
 
-        if(friendRequest.receiver.toString() !== currentUserId){
+        if(friendRequest.recipient.toString() !== currentUserId){
             return res.status(403).json({ message: "You can only cancle request sent to you" });
         }
 
@@ -162,7 +163,7 @@ export async function declineFriendRequest(req, res) {
             return res.status(400).json({ message: "Friend request is not pending" });
         }
 
-        friendRequest.status = "cancelled";
+        friendRequest.status = "declined";
         await friendRequest.save();
 
         res.status(200).json({ message: "Friend request cancelled successfully", friendRequest });
@@ -195,7 +196,7 @@ export async function removeFriend(req, res) {
             $pull: {friends: friendId}
         })
 
-        await User.findByIdAndUpdate(frriendId, {
+        await User.findByIdAndUpdate(friendId, {
             $pull: {friends: currentUserId}
         })
 
@@ -209,23 +210,24 @@ export async function removeFriend(req, res) {
             { status: "cancelled"
             }
         )
+        res.status(200).json({ message: "Friend removed successfully" });
     }catch(error){
         res.status(500).json({ message: "Internal server error" });
         console.error("Error removing friend:", error.message);
     }
 }
 
-export async function cancleFriendRequest(req, res) {
+export async function cancelFriendRequest(req, res) {
     try{
         const {id: requestId} = req.params
-        const currentUserId = req.User.id
+        const currentUserId = req.user.id
 
         const friendRequest = await FriendRequest.findById(requestId)
         if(!friendRequest){
             return res.status(404).json({ message: "Friend request not found" });
         }
 
-        if(friendRequest.sender.toString !== currentUserId){
+        if(friendRequest.sender.toString() !== currentUserId){
             return res.status(403).json({ message: "You can only cancel requests you sent" });
         }
 

@@ -7,7 +7,9 @@ import { getRecommendedUsers,
     getFriendRequests,
     getOutgoingFriendReq, 
     declineFriendRequest,
-    cancleFriendRequest} 
+    cancelFriendRequest,
+    removeFriend,
+    } 
     from "../controllers/user.controller.js";
 
 const router = express.Router();
@@ -24,9 +26,9 @@ router.get("/friend-requests", getFriendRequests)
 router.get("/outgoing-friend-requests", getOutgoingFriendReq)
 
 router.put("/friend-request/:id/decline", declineFriendRequest)
-router.delete("frined-request/:id/cancle", cancleFriendRequest)
+router.delete("/friend-request/:id/cancel", cancelFriendRequest);
 
-router.delete("friends/:friendId")
+router.delete("/friends/:id", removeFriend)
 
 
 
