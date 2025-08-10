@@ -38,7 +38,7 @@ export async function getMyFriends(req, res){
 export async function sendFriendRequest(req, res){
     try{
         const myId = req.user.id
-        const { id: recipientId } = req.params
+        const { id: recipientId } = req.params // lấy id người nhận từ param  
         
         if(myId === recipientId){
             return res.status(400).json({ message: "You can't send friend request to yourself" })
@@ -86,6 +86,7 @@ export async function acceptFriendRequest(req, res){
             return res.status(404).json({ message: "Friend request not found" })
         }
 
+        // kiểm tra quyền chấp nhận, người nhận mới mới chấp nhận
         if(friendRequest.recipient.toString() !== req.user.id){
             return res.status(403).json({ message: "You are not authorized to accept this request" })
         }
@@ -140,5 +141,104 @@ export async function getOutgoingFriendReq(req, res){
     } catch (error) {
         console.error("Error in getOutgoingFriendReq controller", error.message)
         res.status(500).json({ message: "Internal server error" })
+    }
+}
+
+export async function declineFriendRequest(req, res) {
+    try{
+        const {id: requestId} = req.params
+        const currentUserId = req.user.id
+
+        const friendRequest = await FriendRequest.findById(requestId)
+        if(!friendRequest){
+            return res.status(404).json({ message: "Friend request not found" });
+        }
+
+        if(friendRequest.receiver.toString() !== currentUserId){
+            return res.status(403).json({ message: "You can only cancle request sent to you" });
+        }
+
+        if(friendRequest.status !== "pending"){
+            return res.status(400).json({ message: "Friend request is not pending" });
+        }
+
+        friendRequest.status = "cancelled";
+        await friendRequest.save();
+
+        res.status(200).json({ message: "Friend request cancelled successfully", friendRequest });
+    }catch(error){
+        console.error("Error declining friend request:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+export async function removeFriend(req, res) {
+    try{
+        const {id: friendId} = req.params
+        const currentUserId = req.user.id
+
+        if(!friendId || friendId == currentUserId){
+            return res.status(400).json({ message: "Invalid friend ID" });
+        }
+
+        const friend = await User.findById(friendId);
+        if(!friend){
+            return res.status(404).json({ message: "Friend not found" });
+        }
+
+        const currentUser = await User.findById(currentUserId);
+        if(!currentUser.friends.includes(friendId)){
+            return res.status(400).json({ message: "You are not friends with this user" });
+        }
+
+        await User.findByIdAndUpdate(currentUserId, {
+            $pull: {friends: friendId}
+        })
+
+        await User.findByIdAndUpdate(frriendId, {
+            $pull: {friends: currentUserId}
+        })
+
+        await FriendRequest.findOneAndUpdate(
+            {
+                $or: [
+                    { sender: currentUserId, recipient: friendId },
+                    { sender: friendId, recipient: currentUserId }
+                ]
+            },
+            { status: "cancelled"
+            }
+        )
+    }catch(error){
+        res.status(500).json({ message: "Internal server error" });
+        console.error("Error removing friend:", error.message);
+    }
+}
+
+export async function cancleFriendRequest(req, res) {
+    try{
+        const {id: requestId} = req.params
+        const currentUserId = req.User.id
+
+        const friendRequest = await FriendRequest.findById(requestId)
+        if(!friendRequest){
+            return res.status(404).json({ message: "Friend request not found" });
+        }
+
+        if(friendRequest.sender.toString !== currentUserId){
+            return res.status(403).json({ message: "You can only cancel requests you sent" });
+        }
+
+        if(friendRequest.status !== "pending"){
+            return res.status(400).json({ message: "Friend request is not pending" });
+        }
+
+        await FriendRequest.findByIdAndDelete(requestId)
+
+        res.status(200).json({ message: "Friend request cancelled successfully" });
+
+    }catch(error){
+        console.error("Error cancelling friend request:", error);
+        res.status(500).json({ message: "Internal server error" });
     }
 }
