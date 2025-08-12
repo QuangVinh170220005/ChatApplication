@@ -1,36 +1,65 @@
 import { Link } from "react-router-dom";
+import { MessageCircle, UserMinus } from "lucide-react";
 import { LANGUAGE_TO_FLAG } from "../constants";
 
-const FriendCard = ({ friend }) => {
+const FriendCard = ({ friend, onRemoveFriend, isRemoving }) => {
   return (
-    <div className="card bg-base-200 hover:shadow-md transition-shadow">
-      <div className="card-body p-4">
-        {/* USER INFO */}
-        <div className="flex items-center gap-3 mb-3">
-          <div className="avatar size-12">
-            <img src={friend.profilePic} alt={friend.fullName} />
+    <div className="bg-base-100 rounded-xl p-4 hover:bg-base-200 transition-all duration-200 border border-base-300">
+      {/* HEADER */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="avatar">
+            <div className="w-10 h-10 rounded-full">
+              <img src={friend.profilePic} alt={friend.fullName} />
+            </div>
           </div>
-          <h3 className="font-semibold truncate">{friend.fullName}</h3>
+          <h3 className="font-medium text-base-content truncate">
+            {friend.fullName}
+          </h3>
         </div>
 
-        <div className="flex flex-wrap gap-1.5 mb-3">
-          <span className="badge badge-secondary text-xs">
-            {getLanguageFlag(friend.nativeLanguage)}
-            Native: {friend.nativeLanguage}
-          </span>
-          <span className="badge badge-outline text-xs">
-            {getLanguageFlag(friend.learningLanguage)}
-            Learning: {friend.learningLanguage}
-          </span>
-        </div>
-
-        <Link to={`/chat/${friend._id}`} className="btn btn-outline w-full">
-          Message
-        </Link>
+        {/* REMOVE BUTTON - TOP RIGHT */}
+        {onRemoveFriend && (
+          <button
+            className="btn btn-ghost btn-sm btn-circle hover:btn-error"
+            onClick={() => onRemoveFriend(friend._id)}
+            disabled={isRemoving}
+            title="Remove friend"
+          >
+            {isRemoving ? (
+              <span className="loading loading-spinner loading-xs"></span>
+            ) : (
+              <UserMinus className="w-4 h-4" />
+            )}
+          </button>
+        )}
       </div>
+
+      {/* LANGUAGES */}
+      <div className="flex gap-2 mb-4">
+        <div className="flex items-center gap-1 text-xs text-base-content/70">
+          {getLanguageFlag(friend.nativeLanguage)}
+          <span>{friend.nativeLanguage}</span>
+        </div>
+        <div className="text-base-content/40">→</div>
+        <div className="flex items-center gap-1 text-xs text-base-content/70">
+          {getLanguageFlag(friend.learningLanguage)}
+          <span>{friend.learningLanguage}</span>
+        </div>
+      </div>
+
+      {/* MESSAGE BUTTON */}
+      <Link
+        to={`/chat/${friend._id}`}
+        className="btn btn-primary btn-sm w-full gap-2"
+      >
+        <MessageCircle className="w-4 h-4" />
+        Message
+      </Link>
     </div>
   );
 };
+
 export default FriendCard;
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -43,9 +72,9 @@ export function getLanguageFlag(language) {
   if (countryCode) {
     return (
       <img
-        src={`https://flagcdn.com/24x18/${countryCode}.png`}
+        src={`https://flagcdn.com/16x12/${countryCode}.png`}
         alt={`${langLower} flag`}
-        className="h-3 mr-1 inline-block"
+        className="w-4 h-3 rounded-sm"
       />
     );
   }

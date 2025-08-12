@@ -6,17 +6,15 @@ import SignUpPage from './pages/SignUpPage.jsx';
 import ChatPage from './pages/ChatPage.jsx';
 import NotificationsPage from './pages/NotificationsPage.jsx';
 import CallPage from './pages/CallPage.jsx';
+import FriendsPage from './pages/FriendsPage.jsx'; // Thêm import
 import { Toaster } from 'react-hot-toast';
 import PageLoader from './components/PageLoader.jsx';
 import useAuthUser from './hooks/useAuthUser';
 import Layout from './components/Layout';
 import { useThemeStore } from './store/useThemeStore.js';
 
-
 export const App = () => {
-
   const {isLoading, authUser} = useAuthUser()
-
   const {theme} = useThemeStore()
 
   const isAuthenticated = Boolean(authUser)
@@ -59,6 +57,20 @@ export const App = () => {
             isAuthenticated && isOnboarded ? (
               <Layout showSidebar={true}>
                 <NotificationsPage />
+              </Layout>
+            ) : (
+              <Navigate to={!isAuthenticated ? "/login" : "/onboarding"} />
+            )
+          }
+        />
+
+        {/* Thêm route Friends */}
+        <Route
+          path="/friends"
+          element={
+            isAuthenticated && isOnboarded ? (
+              <Layout showSidebar={true}>
+                <FriendsPage />
               </Layout>
             ) : (
               <Navigate to={!isAuthenticated ? "/login" : "/onboarding"} />
