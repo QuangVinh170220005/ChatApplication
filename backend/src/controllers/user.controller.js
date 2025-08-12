@@ -174,47 +174,48 @@ export async function declineFriendRequest(req, res) {
 }
 
 export async function removeFriend(req, res) {
-    try{
-        const {id: friendId} = req.params
-        const currentUserId = req.user.id
+  try {
+    const { id: friendId } = req.params;
+    const currentUserId = req.user.id;
 
-        if(!friendId || friendId == currentUserId){
-            return res.status(400).json({ message: "Invalid friend ID" });
-        }
-
-        const friend = await User.findById(friendId);
-        if(!friend){
-            return res.status(404).json({ message: "Friend not found" });
-        }
-
-        const currentUser = await User.findById(currentUserId);
-        if(!currentUser.friends.includes(friendId)){
-            return res.status(400).json({ message: "You are not friends with this user" });
-        }
-
-        await User.findByIdAndUpdate(currentUserId, {
-            $pull: {friends: friendId}
-        })
-
-        await User.findByIdAndUpdate(friendId, {
-            $pull: {friends: currentUserId}
-        })
-
-        await FriendRequest.findOneAndUpdate(
-            {
-                $or: [
-                    { sender: currentUserId, recipient: friendId },
-                    { sender: friendId, recipient: currentUserId }
-                ]
-            },
-            { status: "cancelled"
-            }
-        )
-        res.status(200).json({ message: "Friend removed successfully" });
-    }catch(error){
-        res.status(500).json({ message: "Internal server error" });
-        console.error("Error removing friend:", error.message);
+    if (!friendId || friendId == currentUserId) {
+      return res.status(400).json({ message: "Invalid friend ID" });
     }
+
+    const friend = await User.findById(friendId);
+    if (!friend) {
+      return res.status(404).json({ message: "Friend not found" });
+    }
+
+    const currentUser = await User.findById(currentUserId);
+    if (!currentUser.friends.includes(friendId)) {
+      return res
+        .status(400)
+        .json({ message: "You are not friends with this user" });
+    }
+
+    // XÓA KHỎI FRIENDS LIST
+    await User.findByIdAndUpdate(currentUserId, {
+      $pull: { friends: friendId },
+    });
+
+    await User.findByIdAndUpdate(friendId, {
+      $pull: { friends: currentUserId },
+    });
+
+    // ← SỬA: XÓA HOÀN TOÀN FRIEND REQUEST THAY VÌ UPDATE STATUS
+    await FriendRequest.deleteMany({
+      $or: [
+        { sender: currentUserId, recipient: friendId },
+        { sender: friendId, recipient: currentUserId },
+      ],
+    });
+
+    res.status(200).json({ message: "Friend removed successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+    console.error("Error removing friend:", error.message);
+  }
 }
 
 export async function cancelFriendRequest(req, res) {

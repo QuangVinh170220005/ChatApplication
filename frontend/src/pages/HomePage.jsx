@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import {
   cancelFriendRequest,
   getOutgoingFriendReq,
@@ -16,49 +17,88 @@ import NoFriendsFound from "../components/NoFriendsFound";
 
 const HomePage = () => {
   const queryClient = useQueryClient();
+  const [loadingUsers, setLoadingUsers] = useState(new Set()); // Track loading users
 
   const { data: friends = [], isLoading: loadingFriends } = useQuery({
     queryKey: ["friends"],
     queryFn: getUserFriends,
   });
 
-  const { data: recommendedUsers = [], isLoading: loadingUsers } = useQuery({
+  const { data: recommendedUsers = [], isLoading: loadingUsersQuery } = useQuery({
     queryKey: ["users"],
     queryFn: getRecommendedUsers,
   });
-
 
   const { data: outgoingFriendReq = [] } = useQuery({
     queryKey: ["outgoingFriendReq"],
     queryFn: getOutgoingFriendReq,
   });
 
-  
   const getRequestIdByUserId = (userId) => {
     const request = outgoingFriendReq?.find(req => req.recipient._id === userId);
     return request?._id;
   };
 
-  
-  const { mutate: sendRequestMutation, isPending: isSending } = useMutation({
+  const { mutate: sendRequestMutation } = useMutation({
     mutationFn: sendFriendRequest,
-    onSuccess: () => {
+    onMutate: (userId) => {
+      // Add user to loading set
+      setLoadingUsers(prev => new Set([...prev, userId]));
+    },
+    onSuccess: (data, userId) => {
       queryClient.invalidateQueries({ queryKey: ["outgoingFriendReq"] });
       queryClient.invalidateQueries({ queryKey: ["users"] });
+      // Remove user from loading set
+      setLoadingUsers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(userId);
+        return newSet;
+      });
     },
-    onError: (error) => {
+    onError: (error, userId) => {
       console.error("Error sending friend request:", error);
+      // Remove user from loading set
+      setLoadingUsers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(userId);
+        return newSet;
+      });
     }
   });
 
-  const { mutate: cancelRequestMutation, isPending: isCancelling } = useMutation({
+  const { mutate: cancelRequestMutation } = useMutation({
     mutationFn: cancelFriendRequest,
-    onSuccess: () => {
+    onMutate: (requestId) => {
+      // Find userId by requestId
+      const request = outgoingFriendReq?.find(req => req._id === requestId);
+      if (request) {
+        setLoadingUsers(prev => new Set([...prev, request.recipient._id]));
+      }
+    },
+    onSuccess: (data, requestId) => {
       queryClient.invalidateQueries({ queryKey: ["outgoingFriendReq"] });
       queryClient.invalidateQueries({ queryKey: ["users"] });
+      // Find userId and remove from loading set
+      const request = outgoingFriendReq?.find(req => req._id === requestId);
+      if (request) {
+        setLoadingUsers(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(request.recipient._id);
+          return newSet;
+        });
+      }
     },
-    onError: (error) => {
+    onError: (error, requestId) => {
       console.error("Error cancelling friend request:", error);
+      // Find userId and remove from loading set
+      const request = outgoingFriendReq?.find(req => req._id === requestId);
+      if (request) {
+        setLoadingUsers(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(request.recipient._id);
+          return newSet;
+        });
+      }
       alert("Không thể hủy lời mời kết bạn!");
     }
   });
@@ -67,7 +107,7 @@ const HomePage = () => {
     return outgoingFriendReq?.some(req => req.recipient._id === userId);
   };
 
-  if (loadingFriends || loadingUsers) {
+  if (loadingFriends || loadingUsersQuery) {
     return (
       <div className="flex justify-center items-center h-64">
         <span className="loading loading-spinner loading-lg"></span>
@@ -95,102 +135,121 @@ const HomePage = () => {
         )}
       </div>
 
-      {/* Recommended Users Section */}
+      {/* Recommended Users Section - Clean & Theme-aware */}
       <div>
-        <div className="flex items-center gap-2 mb-4">
-          <UserPlusIcon className="size-6 text-blue-600" />
-          <h2 className="text-xl font-semibold">People You May Know</h2>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <UserPlusIcon className="size-6 text-blue-600" />
+            <h2 className="text-xl font-semibold">People You May Know</h2>
+          </div>
+          <div className="badge badge-neutral badge-sm">
+            {recommendedUsers.length} people
+          </div>
         </div>
 
         {recommendedUsers.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-base-content/60">No recommendations available</p>
+          <div className="text-center py-12">
+            <UserPlusIcon className="size-16 text-base-content/20 mx-auto mb-4" />
+            <p className="text-base-content/60 text-lg">No recommendations available</p>
+            <p className="text-base-content/40 text-sm mt-1">Check back later for new suggestions</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="space-y-3">
             {recommendedUsers.map((user) => (
-              <div key={user._id} className="card bg-base-100 shadow-xl">
-                <div className="card-body">
-                  <div className="flex items-center gap-3">
-                    <Link to={`/profile/${user._id}`}>
-                      <div className="avatar cursor-pointer">
-                        <div className="w-12 h-12 rounded-full">
-                          <img
-                            src={user.profilePic || "/avatar.png"}
-                            alt={user.fullName}
-                          />
+              <div key={user._id} className="card bg-base-100 shadow-sm hover:shadow-md transition-shadow duration-200 border border-base-300">
+                <div className="card-body p-4">
+                  <div className="flex items-center justify-between">
+                    
+                    {/* Left: User Info */}
+                    <div className="flex items-center gap-4 flex-1">
+                      <Link to={`/profile/${user._id}`}>
+                        <div className="avatar">
+                          <div className="w-14 h-14 rounded-full ring-2 ring-base-300 hover:ring-primary transition-colors">
+                            <img
+                              src={user.profilePic || "/avatar.png"}
+                              alt={user.fullName}
+                              className="object-cover"
+                            />
+                          </div>
+                        </div>
+                      </Link>
+                      
+                      <div className="flex-1">
+                        <Link to={`/profile/${user._id}`}>
+                          <h3 className="font-semibold text-base hover:text-primary cursor-pointer transition-colors">
+                            {user.fullName}
+                          </h3>
+                        </Link>
+                        
+                        <div className="flex items-center gap-1 text-sm text-base-content/60 mb-2">
+                          <MapPinIcon className="size-3" />
+                          <span>{user.location || "Unknown"}</span>
+                        </div>
+
+                        {/* Languages - Horizontal Layout */}
+                        <div className="flex items-center gap-4 text-sm">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-base-content/50">Native:</span>
+                            <span className="text-lg">{getLanguageFlag(user.nativeLanguage)}</span>
+                            <span className="font-medium text-base-content/80">
+                              {capitalize(user.nativeLanguage)}
+                            </span>
+                          </div>
+                          
+                          <div className="text-base-content/30">→</div>
+                          
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-base-content/50">Learning:</span>
+                            <span className="text-lg">{getLanguageFlag(user.learningLanguage)}</span>
+                            <span className="font-medium text-base-content/80">
+                              {capitalize(user.learningLanguage)}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </Link>
-                    <div className="flex-1">
-                      <Link to={`/profile/${user._id}`}>
-                        <h3 className="font-semibold hover:text-primary cursor-pointer">
-                          {user.fullName}
-                        </h3>
-                      </Link>
-                      <div className="flex items-center gap-1 text-sm text-base-content/70">
-                        <MapPinIcon className="size-3" />
-                        <span>{user.location || "Unknown"}</span>
-                      </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-2 mt-2">
-                    <div className="flex items-center gap-1">
-                      <span className="text-sm">Native:</span>
-                      <span className="text-lg">{getLanguageFlag(user.nativeLanguage)}</span>
-                      <span className="text-sm font-medium">
-                        {capitalize(user.nativeLanguage)}
-                      </span>
+                    {/* Right: Action Button */}
+                    <div className="ml-4">
+                      {isPendingRequest(user._id) ? (
+                        <button
+                          className="btn btn-error btn-sm"
+                          onClick={() => {
+                            const requestId = getRequestIdByUserId(user._id);
+                            if (!requestId) {
+                              alert("Không tìm thấy requestId để hủy!");
+                              return;
+                            }
+                            cancelRequestMutation(requestId);
+                          }}
+                          disabled={loadingUsers.has(user._id)} // Check specific user
+                        >
+                          {loadingUsers.has(user._id) ? ( // Check specific user
+                            <span className="loading loading-spinner loading-xs"></span>
+                          ) : (
+                            <>
+                              <XIcon className="size-4 mr-1" />
+                              Cancel
+                            </>
+                          )}
+                        </button>
+                      ) : (
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => sendRequestMutation(user._id)}
+                          disabled={loadingUsers.has(user._id)} // Check specific user
+                        >
+                          {loadingUsers.has(user._id) ? ( // Check specific user
+                            <span className="loading loading-spinner loading-xs"></span>
+                          ) : (
+                            <>
+                              <UserPlusIcon className="size-4 mr-1" />
+                              Add Friend
+                            </>
+                          )}
+                        </button>
+                      )}
                     </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-sm">Learning:</span>
-                      <span className="text-lg">{getLanguageFlag(user.learningLanguage)}</span>
-                      <span className="text-sm font-medium">
-                        {capitalize(user.learningLanguage)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="card-actions justify-end mt-4">
-                    {isPendingRequest(user._id) ? (
-                      <button
-                        className="btn btn-error btn-sm"
-                        onClick={() => {
-                          const requestId = getRequestIdByUserId(user._id);
-                          if (!requestId) {
-                            alert("Không tìm thấy requestId để hủy!");
-                            return;
-                          }
-                          cancelRequestMutation(requestId);
-                        }}
-                        disabled={isCancelling}
-                      >
-                        {isCancelling ? (
-                          <span className="loading loading-spinner loading-xs"></span>
-                        ) : (
-                          <>
-                            <XIcon className="size-4 mr-1" />
-                            Cancel Request
-                          </>
-                        )}
-                      </button>
-                    ) : (
-                      <button
-                        className="btn btn-primary btn-sm"
-                        onClick={() => sendRequestMutation(user._id)}
-                        disabled={isSending}
-                      >
-                        {isSending ? (
-                          <span className="loading loading-spinner loading-xs"></span>
-                        ) : (
-                          <>
-                            <UserPlusIcon className="size-4 mr-1" />
-                            Add Friend
-                          </>
-                        )}
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>
